@@ -301,8 +301,6 @@ int main()
             err(EXIT_FAILURE, "main: accept()");
         }
 
-        int thread;
-        pthread_t thread_id;
 
         // - Create and execute the thread.
         pthread_t thr;
