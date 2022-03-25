@@ -54,13 +54,64 @@ void get_www_resource(int cfd, gchar* resource)
         send(cfd, message, strlen(message), MSG_MORE);
         
         //Send message content
-        rewrite(cfd, file_content, response_size);
+        if (write(cfd, file_content, response_size) != ((int) response_size))
+        {
+            fprintf(stderr, "partial/failed write\n");
+        }
     }
     
-    if(error != NULL) 
-        g_error_free(error);
+    if(error != NULL) g_error_free(error);
     g_free(file_content);
     g_free(resource_path);
+}
+void* worker(void* arg)
+{
+    int cfd = *((int*) arg);
+    ssize_t r;
+    GString *request = g_string_new("");
+    char buffer[BUFFER_SIZE];
+    
+    //Get the request from the web client
+    //Loop until full message is read
+    while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
+        {
+            r = read(cfd, buffer, BUFFER_SIZE);
+            if (r == -1)
+            {
+                err(EXIT_FAILURE, "could not read the request");
+            }
+            request = g_string_append_len(request, buffer, r);
+        } 
+
+    //Get resource from the request
+    if (g_str_has_prefix(request->str, "GET ") == TRUE)
+    {
+        gchar* resource = g_strndup(request->str+5, g_strstr_len(request->str, -1, " HTTP/")-request->str-5);
+
+        if(strcmp(resource, "slow.html") == 0)
+            sleep(10);
+            
+        if(strcmp(resource, "") == 0)
+        {
+            resource = realloc(resource, 10 * sizeof(gchar));
+            g_stpcpy(resource, "index.html");
+        }
+         
+        //Print resource and free full_request and resource
+        printf("%d: %s\n", cfd, resource);
+
+        //Prepare response to the client depending on the requested resource
+        get_www_resource(cfd, resource);
+
+        g_free(resource);
+
+        //Close client sockets
+        close(cfd);
+    }
+
+    g_string_free(request, TRUE);
+    
+    return NULL;
 }
 
 int main()
@@ -110,39 +161,12 @@ int main()
         cfd = accept(sfd, &client_address, &client_address_length);
         if (cfd == -1)
             err(EXIT_FAILURE, "main: accept()");
-        GString *request = g_string_new("");
-        ssize_t r;
-        while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
+        pthread_t thr;
+        int e = pthread_create(&thr, NULL, &(worker), (void*)&cfd);
+        if (e!=0)
         {
-            r = read(cfd, buffer, BUFFER_SIZE);
-            if (r == -1)
-            {
-                err(EXIT_FAILURE, "could not read the request");
-            }
-            request = g_string_append_len(request, buffer, r);
-        } 
-        //Print any message showing that a connection is successful.
-        //Print a message to the client
-        if (g_str_has_prefix(request->str, "GET ") == TRUE)
-        {
-            gchar* resource = g_strndup(request->str+5, g_strstr_len(request->str, -1, " HTTP/")-request->str-5);
-            if(strcmp(resource, "slow.html") == 0)
-                sleep(10);
-
-            if(strcmp(resource, "") == 0)
-            {
-                resource = realloc(resource, 10 * sizeof(gchar));
-                g_stpcpy(resource, "index.html");
-            }
-
-            printf("%d: %s\n", cfd, resource);
-            
-            get_www_resource(cfd, resource);
-            g_free(resource);
-            close(cfd);
+            err(EXIT_FAILURE, "pthread_create()");
         }
-        
-        
     }
     //Close sfd
     close(sfd);
