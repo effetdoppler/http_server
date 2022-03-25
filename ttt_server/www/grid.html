@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="author" content="David Bouchet">
+    <meta charset="utf-8">
+    <title>%2$s</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="script.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body onload="init();">
+    <h1>%2$s: <img src="%1$c.png" alt="%1$c"></h1>
+    <table>
+        <tr>
+            <td onclick="set_cell(0);"><img src="blank.png" alt=" " class="sign"></td>
+            <td onclick="set_cell(1);"><img src="blank.png" alt=" " class="sign"></td>
+            <td onclick="set_cell(2);"><img src="blank.png" alt=" " class="sign"></td>
+        </tr>
+        <tr>
+            <td onclick="set_cell(3);"><img src="blank.png" alt=" " class="sign"></td>
+            <td onclick="set_cell(4);"><img src="blank.png" alt=" " class="sign"></td>
+            <td onclick="set_cell(5);"><img src="blank.png" alt=" " class="sign"></td>
+        </tr>
+        <tr>
+            <td onclick="set_cell(6);"><img src="blank.png" alt=" " class="sign"></td>
+            <td onclick="set_cell(7);"><img src="blank.png" alt=" " class="sign"></td>
+            <td onclick="set_cell(8);"><img src="blank.png" alt=" " class="sign"></td>
+        </tr>
+    </table>
+    <p class="message">Message</p>
+    <button onclick="restart();">Restart</button>
+</body>
+</html>
