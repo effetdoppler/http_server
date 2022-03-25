@@ -159,7 +159,7 @@ int main()
         if (cfd == -1)
             err(EXIT_FAILURE, "main: accept()");
         pthread_t thr;
-        int e = pthread_create(&thr, NULL, &(worker), (void*)&cfd);
+        int e = pthread_create(&thr, NULL, worker, (void*)&cfd);
         if (e!=0)
         {
             err(EXIT_FAILURE, "pthread_create()");
