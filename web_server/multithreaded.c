@@ -9,6 +9,7 @@
 #include <err.h>
 #include <gmodule.h>
 #include <glib.h>
+#include <pthread.h>
 #include <glib/gprintf.h>
 
 #define BUFFER_SIZE 512
