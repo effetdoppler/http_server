@@ -64,6 +64,7 @@ void get_www_resource(int cfd, gchar* resource)
     g_free(file_content);
     g_free(resource_path);
 }
+
 void* worker(void* arg)
 {
     int cfd = *((int*) arg);
@@ -116,7 +117,6 @@ void* worker(void* arg)
 
 int main()
 {
-    char buffer[BUFFER_SIZE];
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
