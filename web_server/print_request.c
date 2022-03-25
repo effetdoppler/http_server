@@ -8,7 +8,7 @@
 #include <unistd.h>
 #include <glib.h>
 
-#define BUFFER_SIZE 500
+#define BUFFER_SIZE 512
 void rewrite(int fd, const void *buf, size_t count)
 {
     ssize_t res = write(fd, buf, count);
@@ -60,14 +60,13 @@ int main()
     }
     //Free the linked list.
     freeaddrinfo(result);
-    
+    printf("Static Server\nListening to port 2048...\n");
     if (rp == NULL)              /* No address succeeded */
         errx(EXIT_FAILURE, "Could not connect\n");
     if (listen(sfd, 5) == -1)
         err(EXIT_FAILURE, "main: listen()");
 
     //Print a message saying that your server is waiting for connections.
-    printf("Waiting for connections...\n");
     while(1)
     {
         int cfd;
@@ -81,21 +80,19 @@ int main()
         ssize_t r;
         while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
         {
-            r = read(cfd, buffer, BUFFER_SIZE-1);
+            r = read(cfd, buffer, BUFFER_SIZE);
             if (r == -1)
             {
-                perror("read");
-                exit(0);
+                err(EXIT_FAILURE, "could not read the request");
             }
-            buffer[r] = '\0';
-            request = g_string_append(request, buffer);
+            request = g_string_append_len(request, buffer, r);
         } 
         //Print any message showing that a connection is successful.
         //Print a message to the client
         printf("%s", request->str);
         char response[] = "HTTP/1.1 200 OK\r\n\r\nHello World!";
         g_string_free(request, TRUE);
-        rewrite(cfd, response, 32);
+        rewrite(cfd, response, r);
         close(cfd);
         
     }
