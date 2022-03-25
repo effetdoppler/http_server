@@ -54,10 +54,7 @@ void get_www_resource(int cfd, gchar* resource)
         send(cfd, message, strlen(message), MSG_MORE);
         
         //Send message content
-        if (write(cfd, file_content, response_size) != ((int) response_size))
-        {
-            fprintf(stderr, "partial/failed write\n");
-        }
+        rewrite(cfd, file_content, response_size);
     }
     
     if(error != NULL) g_error_free(error);
@@ -170,6 +167,5 @@ int main()
     }
     //Close sfd
     close(sfd);
-    return 0;
    
 }
