@@ -223,7 +223,7 @@ int main()
 {
     struct addrinfo hints;
     struct addrinfo *addr_list, *addr;
-    int socket_id, cfd;
+    int sfd;
     int res;
 
     // Init with a value of 1
@@ -251,23 +251,23 @@ int main()
     for (addr = addr_list; addr != NULL; addr = addr->ai_next)
     {
         //Socket creation
-        socket_id = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+        sfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 
         //If error, try next adress
-        if (socket_id == -1)
+        if (sfd == -1)
             continue;
 
         //Set options on socket
         int enable = 1;
-        if (setsockopt(socket_id, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1)
+        if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1)
             perror("setsockopt(SO_REUSEADDR) failed");
 
         //Bind a name to a socket, exit if no error
-        if (bind(socket_id, addr->ai_addr, addr->ai_addrlen) == 0)
+        if (bind(sfd, addr->ai_addr, addr->ai_addrlen) == 0)
             break;
 
         //Close current not connected socket
-        close(socket_id);
+        close(sfd);
     }
 
     //addr_list freed
@@ -281,7 +281,7 @@ int main()
     }
 
     //Specify that the socket can be used to accept incoming connections
-    if(listen(socket_id, 5) == -1)
+    if(listen(sfd, 5) == -1)
     {
         fprintf(stderr, "Cannot wait\n");
         exit(0);
@@ -294,7 +294,8 @@ int main()
     while(1)
     {
         //Accept connection from a client and exit the program in case of error
-        cfd = accept(socket_id, addr->ai_addr, &(addr->ai_addrlen));
+        int cfd;
+        cfd = accept(sfd, addr->ai_addr, &(addr->ai_addrlen));
         if(cfd == -1)
         {
             err(EXIT_FAILURE, "main: accept()");
@@ -304,16 +305,16 @@ int main()
         pthread_t thread_id;
 
         // - Create and execute the thread.
-        thread = pthread_create(&thread_id, NULL, &(worker), (void*)&cfd);
-        if(thread != 0)
+        pthread_t thr;
+        int e = pthread_create(&thr, NULL, worker, (void*)&cfd);
+        if (e!=0)
         {
-            fprintf(stderr, "hello: Can't create thread.\n");
-            exit(0);
+            err(EXIT_FAILURE, "pthread_create()");
         }
     }
 
     //Close server sockets
-    close(socket_id);
+    close(sfd);
     
     sem_destroy(&lock);
 }

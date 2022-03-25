@@ -116,49 +116,89 @@ void* worker(void* arg)
 int main()
 {
     struct addrinfo hints;
+    struct addrinfo *addr_list, *addr;
+    int sfd;
+    int res;
+
+    // Init with a value of 1
+    // first 0 is for unused option, keep it this way
+    if ( sem_init(&lock, 0, 1) == -1)
+        err(1, "Fail to initialized semaphore");
+    
+    //Get addresses list
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
-    struct addrinfo *result;
-    if (getaddrinfo(NULL, "2048", &hints, &result) != 0)
-        err(EXIT_FAILURE, "server_connection: getaddrinfo()");
-    struct addrinfo *rp;
-    int sfd;
-    for (rp = result; rp != NULL; rp = rp->ai_next)
+
+    res = getaddrinfo(NULL, "2048", &hints, &addr_list);
+
+    //If error, exit the program
+    if (res != 0)
     {
-        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-        //If an error occurs, continue with the next address.
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(res));
+        exit(0);
+    }
+
+
+    //Try to connect to each adress returned by getaddrinfo()
+    for (addr = addr_list; addr != NULL; addr = addr->ai_next)
+    {
+        //Socket creation
+        sfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+
+        //If error, try next adress
         if (sfd == -1)
             continue;
-        int value = 1;
-        //set SO_REUSEADDR to 1
-        if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(int))==-1)
-            err(EXIT_FAILURE, "server_connection: setsocketopt()");
-        // Try to bind the socket to the address
-        if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
+
+        //Set options on socket
+        int enable = 1;
+        if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1)
+            perror("setsockopt(SO_REUSEADDR) failed");
+
+        //Bind a name to a socket, exit if no error
+        if (bind(sfd, addr->ai_addr, addr->ai_addrlen) == 0)
             break;
+
+        //Close current not connected socket
         close(sfd);
     }
-    //Free the linked list.
-    freeaddrinfo(result);
-    
-    if (rp == NULL)              /* No address succeeded */
-        errx(EXIT_FAILURE, "Could not connect\n");
-    if (listen(sfd, 5) == -1)
-        err(EXIT_FAILURE, "main: listen()");
 
-    //Print a message saying that your server is waiting for connections.
-    printf("Static Server\nListening to port 2048...\n");
+    //addr_list freed
+    freeaddrinfo(addr_list);
+
+    //If no address works, exit the program
+    if (addr == NULL)
+    {
+        fprintf(stderr, "Could not bind\n");
+        exit(0);
+    }
+
+    //Specify that the socket can be used to accept incoming connections
+    if(listen(sfd, 5) == -1)
+    {
+        fprintf(stderr, "Cannot wait\n");
+        exit(0);
+    }
+
+    //Socket waiting for connections on port 2048
+    printf("Tic-Tac-Toe Server\nListening to port 2048...\n");
+
+    //Allow multiple connections
     while(1)
     {
+        //Accept connection from a client and exit the program in case of error
         int cfd;
-        struct sockaddr client_address;
-        socklen_t client_address_length = sizeof(struct sockaddr);
-        //Wait for connections by using the accept(2) function
-        cfd = accept(sfd, &client_address, &client_address_length);
-        if (cfd == -1)
+        cfd = accept(sfd, addr->ai_addr, &(addr->ai_addrlen));
+        if(cfd == -1)
+        {
             err(EXIT_FAILURE, "main: accept()");
+        }
+
+        int thread;
+        pthread_t thread_id;
+
+        // - Create and execute the thread.
         pthread_t thr;
         int e = pthread_create(&thr, NULL, worker, (void*)&cfd);
         if (e!=0)
@@ -166,7 +206,8 @@ int main()
             err(EXIT_FAILURE, "pthread_create()");
         }
     }
-    //Close sfd
+
+    //Close server sockets
     close(sfd);
    
 }
