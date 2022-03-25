@@ -120,10 +120,6 @@ int main()
     int sfd;
     int res;
 
-    // Init with a value of 1
-    // first 0 is for unused option, keep it this way
-    if ( sem_init(&lock, 0, 1) == -1)
-        err(1, "Fail to initialized semaphore");
     
     //Get addresses list
     memset(&hints, 0, sizeof(struct addrinfo));
