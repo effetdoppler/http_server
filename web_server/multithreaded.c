@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,10 +11,29 @@
 #include <glib.h>
 #include <glib/gprintf.h>
 
-#define BUFFER_SIZE 500
+#define BUFFER_SIZE 512
 
-// Get resource
-void get_www_resource(int client_socket_id, gchar* resource)
+void rewrite(int fd, const void *buf, size_t count)
+{
+    ssize_t res = write(fd, buf, count);
+    //If the return value of write() is smaller than its third argument, you must call write() a
+    //gain in order to have the rest of the data written. Repeat this until all the data has been sent
+    if (res != (ssize_t)count)
+    {
+        const char * buff  = buf;
+        while(res != (ssize_t)count)
+        {
+            // If an error occurs, exit the program with an error message
+            if (res == -1)
+                err(EXIT_FAILURE, "write function has failed");
+            res = write(fd, buf, count);
+            buff = buff + res;
+            count = count - res;
+            res = write(fd, buff, count);
+        }
+    }
+}
+void get_www_resource(int cfd, gchar* resource)
 {
     gchar* file_content;
     gsize response_size;
@@ -24,19 +45,16 @@ void get_www_resource(int client_socket_id, gchar* resource)
     if(g_file_get_contents(resource_path, &file_content, &response_size, &error) == FALSE)
     {
         char message[] = "HTTP/1.1 404 Not Found\r\n\r\n404 Not Found";
-        write(client_socket_id, message, strlen(message));
+        write(cfd, message, strlen(message));
     }
     else
     {
         //Send message status
         char message[] = "HTTP/1.1 200 OK\r\n\r\n";
-        send(client_socket_id, message, strlen(message), MSG_MORE);
+        send(cfd, message, strlen(message), MSG_MORE);
         
         //Send message content
-        if (write(client_socket_id, file_content, response_size) != ((int) response_size))
-        {
-            fprintf(stderr, "partial/failed write\n");
-        }
+        rewrite(cfd, file_content, response_size);
     }
     
     if(error != NULL) g_error_free(error);
@@ -44,33 +62,29 @@ void get_www_resource(int client_socket_id, gchar* resource)
     g_free(resource_path);
 }
 
-// Define the thread function.
 void* worker(void* arg)
 {
-    int client_socket_id = *((int*) arg);
-    ssize_t request_size;
-    char request[BUFFER_SIZE];
+    int cfd = *((int*) arg);
+    ssize_t r;
+    GString *request = g_string_new("");
+    char buffer[BUFFER_SIZE];
     
     //Get the request from the web client
     //Loop until full message is read
-    GString *full_request = g_string_new("");
-    do
-    {
-        request_size = read(client_socket_id, request, BUFFER_SIZE-1);
-        if (request_size == -1)
+    while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
         {
-            perror("read");
-            exit(0);
-        }
-        request[request_size] = '\0';
-        full_request = g_string_append(full_request, request);
-    } while (request_size > 0 &&
-             g_str_has_suffix(full_request->str, "\r\n\r\n") == FALSE);
+            r = read(cfd, buffer, BUFFER_SIZE);
+            if (r == -1)
+            {
+                err(EXIT_FAILURE, "could not read the request");
+            }
+            request = g_string_append_len(request, buffer, r);
+        } 
 
     //Get resource from the request
-    if (g_str_has_prefix(full_request->str, "GET ") == TRUE)
+    if (g_str_has_prefix(request->str, "GET ") == TRUE)
     {
-        gchar* resource = g_strndup(full_request->str+5, g_strstr_len(full_request->str, -1, " HTTP/")-full_request->str-5);
+        gchar* resource = g_strndup(request->str+5, g_strstr_len(request->str, -1, " HTTP/")-request->str-5);
 
         if(strcmp(resource, "slow.html") == 0)
             sleep(10);
@@ -82,18 +96,18 @@ void* worker(void* arg)
         }
          
         //Print resource and free full_request and resource
-        printf("%d: %s\n", client_socket_id, resource);
+        printf("%d: %s\n", cfd, resource);
 
         //Prepare response to the client depending on the requested resource
-        get_www_resource(client_socket_id, resource);
+        get_www_resource(cfd, resource);
 
         g_free(resource);
 
         //Close client sockets
-        close(client_socket_id);
+        close(cfd);
     }
 
-    g_string_free(full_request, TRUE);
+    g_string_free(request, TRUE);
     
     return NULL;
 }
@@ -101,92 +115,57 @@ void* worker(void* arg)
 int main()
 {
     struct addrinfo hints;
-    struct addrinfo *addr_list, *addr;
-    int socket_id, client_socket_id;
-    int res;
-
-    //Get addresses list
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
-
-    res = getaddrinfo(NULL, "2048", &hints, &addr_list);
-
-    //If error, exit the program
-    if (res != 0)
+    struct addrinfo *result;
+    if (getaddrinfo(NULL, "2048", &hints, &result) != 0)
+        err(EXIT_FAILURE, "server_connection: getaddrinfo()");
+    struct addrinfo *rp;
+    int sfd;
+    for (rp = result; rp != NULL; rp = rp->ai_next)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(res));
-        exit(0);
-    }
-
-
-    //Try to connect to each adress returned by getaddrinfo()
-    for (addr = addr_list; addr != NULL; addr = addr->ai_next)
-    {
-        //Socket creation
-        socket_id = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-
-        //If error, try next adress
-        if (socket_id == -1)
+        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        //If an error occurs, continue with the next address.
+        if (sfd == -1)
             continue;
-
-        //Set options on socket
-        int enable = 1;
-        if (setsockopt(socket_id, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1)
-            perror("setsockopt(SO_REUSEADDR) failed");
-
-        //Bind a name to a socket, exit if no error
-        if (bind(socket_id, addr->ai_addr, addr->ai_addrlen) == 0)
+        int value = 1;
+        //set SO_REUSEADDR to 1
+        if (setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(int))==-1)
+            err(EXIT_FAILURE, "server_connection: setsocketopt()");
+        // Try to bind the socket to the address
+        if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
             break;
-
-        //Close current not connected socket
-        close(socket_id);
+        close(sfd);
     }
+    //Free the linked list.
+    freeaddrinfo(result);
+    
+    if (rp == NULL)              /* No address succeeded */
+        errx(EXIT_FAILURE, "Could not connect\n");
+    if (listen(sfd, 5) == -1)
+        err(EXIT_FAILURE, "main: listen()");
 
-    //addr_list freed
-    freeaddrinfo(addr_list);
-
-    //If no address works, exit the program
-    if (addr == NULL)
-    {
-        fprintf(stderr, "Could not bind\n");
-        exit(0);
-    }
-
-    //Specify that the socket can be used to accept incoming connections
-    if(listen(socket_id, 5) == -1)
-    {
-        fprintf(stderr, "Cannot wait\n");
-        exit(0);
-    }
-
-    //Socket waiting for connections on port 2048
+    //Print a message saying that your server is waiting for connections.
     printf("Static Server\nListening to port 2048...\n");
-
-    //Allow multiple connections
     while(1)
     {
-        //Accept connection from a client and exit the program in case of error
-        client_socket_id = accept(socket_id, addr->ai_addr, &(addr->ai_addrlen));
-        if(client_socket_id == -1)
+        int cfd;
+        struct sockaddr client_address;
+        socklen_t client_address_length = sizeof(struct sockaddr);
+        //Wait for connections by using the accept(2) function
+        cfd = accept(sfd, &client_address, &client_address_length);
+        if (cfd == -1)
+            err(EXIT_FAILURE, "main: accept()");
+        pthread_t thr;
+        int e = pthread_create(&thr, NULL, worker, (void*)&cfd);
+        if (e!=0)
         {
-            fprintf(stderr, "Cannot connect\n");
-            exit(0);
-        }
-
-        int thread;
-        pthread_t thread_id;
-
-        // - Create and execute the thread.
-        thread = pthread_create(&thread_id, NULL, &(worker), (void*)&client_socket_id);
-        if(thread != 0)
-        {
-            fprintf(stderr, "hello: Can't create thread.\n");
-            exit(0);
+            err(EXIT_FAILURE, "pthread_create()");
         }
     }
-
-    //Close server sockets
-    close(socket_id);
+    //Close sfd
+    close(sfd);
+   
 }
