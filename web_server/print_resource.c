@@ -79,7 +79,7 @@ int main()
             err(EXIT_FAILURE, "main: accept()");
         GString *request = g_string_new("");
         ssize_t r = 1;
-        while (r > 0)
+        while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
         {
             r = read(cfd, buffer, BUFFER_SIZE);
             if (r == -1)
@@ -88,8 +88,7 @@ int main()
             }
             request = g_string_append_len(request, buffer, r);
         } 
-        //if empty request or invalid request
-        if(!(g_str_has_suffix(request->str, "\r\n\r\n")))
+        if (!(g_str_has_suffix(request->str, "\r\n\r\n")))
         {
             close(cfd);
             continue;
