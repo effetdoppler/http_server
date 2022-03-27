@@ -162,7 +162,7 @@ void* worker(void* arg)
     //Get the request from the web client
     //Loop until full message is read
     GString *full_request = g_string_new("");
-    do
+    while (request_size > 0 && g_str_has_suffix(full_request->str, "\r\n\r\n") == FALSE)
     {
         request_size = read(cfd, request, BUFFER_SIZE-1);
         if (request_size == -1)
@@ -172,8 +172,7 @@ void* worker(void* arg)
         }
         request[request_size] = '\0';
         full_request = g_string_append(full_request, request);
-    } while (request_size > 0 &&
-             g_str_has_suffix(full_request->str, "\r\n\r\n") == FALSE);
+    }
 
     //Get resource from the request
     if (g_str_has_prefix(full_request->str, "GET ") == TRUE)
