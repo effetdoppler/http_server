@@ -101,10 +101,10 @@ int main()
             printf("%s\n", resource);
             free(resource);
             char response[] = "HTTP/1.1 200 OK\r\n\r\nHello World!";
-            g_string_free(request, TRUE);
             rewrite(cfd, response, strlen(response));
         }
         
+        g_string_free(request, TRUE);
         close(cfd);
         
     }

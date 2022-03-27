@@ -144,6 +144,7 @@ int main()
             get_www_resource(cfd, resource);
             g_free(resource);
         }
+        g_string_free(request, TRUE);
         close(cfd);
         
     }
