@@ -103,7 +103,7 @@ int main()
             free(resource);
             char response[] = "HTTP/1.1 200 OK\r\n\r\nHello World!";
             g_string_free(request, TRUE);
-            rewrite(cfd, response, r);
+            rewrite(cfd, response, strlen(response));
         }
         
         close(cfd);
