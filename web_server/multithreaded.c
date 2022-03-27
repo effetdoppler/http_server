@@ -104,10 +104,10 @@ void* worker(void* arg)
 
         g_free(resource);
 
-        //Close client sockets
-        close(cfd);
     }
 
+    //Close client sockets
+    close(cfd);
     g_string_free(request, TRUE);
     
     return NULL;

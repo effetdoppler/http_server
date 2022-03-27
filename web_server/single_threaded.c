@@ -121,6 +121,11 @@ int main()
             }
             request = g_string_append_len(request, buffer, r);
         } 
+        if (!(g_str_has_suffix(request->str, "\r\n\r\n")))
+        {
+            close(cfd);
+            continue;
+        }
         //Print any message showing that a connection is successful.
         //Print a message to the client
         if (g_str_has_prefix(request->str, "GET ") == TRUE)
@@ -139,9 +144,8 @@ int main()
             
             get_www_resource(cfd, resource);
             g_free(resource);
-            close(cfd);
         }
-        
+        close(cfd);
         
     }
     //Close sfd
