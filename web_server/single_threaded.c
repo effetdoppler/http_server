@@ -111,8 +111,8 @@ int main()
         if (cfd == -1)
             err(EXIT_FAILURE, "main: accept()");
         GString *request = g_string_new("");
-        ssize_t r = 1;
-        while (r > 0)
+        ssize_t r;
+        while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
         {
             r = read(cfd, buffer, BUFFER_SIZE);
             if (r == -1)
@@ -121,12 +121,6 @@ int main()
             }
             request = g_string_append_len(request, buffer, r);
         } 
-        //if empty request or invalid request
-        if(!(g_str_has_suffix(request->str, "\r\n\r\n")))
-        {
-            close(cfd);
-            continue;
-        }
         //Print any message showing that a connection is successful.
         //Print a message to the client
         if (g_str_has_prefix(request->str, "GET ") == TRUE)
