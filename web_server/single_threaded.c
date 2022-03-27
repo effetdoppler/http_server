@@ -133,10 +133,9 @@ int main()
             gchar* resource = g_strndup(request->str+5, g_strstr_len(request->str, -1, " HTTP/")-request->str-5);
             if(strcmp(resource, "slow.html") == 0)
                 sleep(10);
-
-            if(strcmp(resource, "") == 0)
+            else if(strcmp(resource, "") == 0)
             {
-                resource = realloc(resource, 10 * sizeof(gchar));
+                resource = realloc(resource, 11 * sizeof(gchar));
                 g_stpcpy(resource, "index.html");
             }
 

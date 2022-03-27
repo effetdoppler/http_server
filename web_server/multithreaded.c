@@ -9,7 +9,6 @@
 #include <err.h>
 #include <gmodule.h>
 #include <glib.h>
-#include <pth
 #include <glib/gprintf.h>
 
 #define BUFFER_SIZE 512
@@ -58,7 +57,8 @@ void get_www_resource(int cfd, gchar* resource)
         rewrite(cfd, file_content, response_size);
     }
     
-    if(error != NULL) g_error_free(error);
+    if(error != NULL) 
+        g_error_free(error);
     g_free(file_content);
     g_free(resource_path);
 }
@@ -92,7 +92,7 @@ void* worker(void* arg)
             
         if(strcmp(resource, "") == 0)
         {
-            resource = realloc(resource, 10 * sizeof(gchar));
+            resource = realloc(resource, 11 * sizeof(gchar));
             g_stpcpy(resource, "index.html");
         }
          
