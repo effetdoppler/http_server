@@ -39,7 +39,7 @@ void get_www_resource(int cfd, gchar* resource)
     gsize response_size;
     GError* error = NULL;
     
-    gchar* resource_path = malloc((strlen(resource) + 4) * sizeof(char));
+    gchar* resource_path = malloc((strlen(resource) + 5) * sizeof(char));
     sprintf(resource_path, "www/%s", resource);
 
     if(g_file_get_contents(resource_path, &file_content, &response_size, &error) == FALSE)
@@ -111,7 +111,7 @@ int main()
         if (cfd == -1)
             err(EXIT_FAILURE, "main: accept()");
         GString *request = g_string_new("");
-        ssize_t r;
+        ssize_t r = 1;
         while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
         {
             r = read(cfd, buffer, BUFFER_SIZE);

@@ -77,7 +77,7 @@ int main()
         if (cfd == -1)
             err(EXIT_FAILURE, "main: accept()");
         GString *request = g_string_new("");
-        ssize_t r;
+        ssize_t r = 1;
         while (r > 0 && !(g_str_has_suffix(request->str, "\r\n\r\n")))
         {
             r = read(cfd, buffer, BUFFER_SIZE);

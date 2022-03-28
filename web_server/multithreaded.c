@@ -39,7 +39,7 @@ void get_www_resource(int cfd, gchar* resource)
     gsize response_size;
     GError* error = NULL;
     
-    gchar* resource_path = malloc((strlen(resource) + 4) * sizeof(char));
+    gchar* resource_path = malloc((strlen(resource) + 5) * sizeof(char));
     sprintf(resource_path, "www/%s", resource);
 
     if(g_file_get_contents(resource_path, &file_content, &response_size, &error) == FALSE)
@@ -66,7 +66,7 @@ void get_www_resource(int cfd, gchar* resource)
 void* worker(void* arg)
 {
     int cfd = *((int*) arg);
-    ssize_t r;
+    ssize_t r = 1;
     GString *request = g_string_new("");
     char buffer[BUFFER_SIZE];
     
